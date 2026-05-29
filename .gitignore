@@ -1,16 +1,4 @@
-# Folder environment (JANGAN DI-UPLOAD)
 venv/
-.venv/
-__pycache__/
-
-# File sensitif berisi API Key (JANGAN DI-UPLOAD)
 .env
-
-# File konfigurasi sistem & IDE
+__pycache__/
 .DS_Store
-.vscode/
-*.pyc
-
-# Folder hasil build/dist (opsional)
-dist/
-build/
