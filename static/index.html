@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NutriCheck AI</title>
+  <link rel="icon" href="/static/lens.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --bg:           #f5f4f0;
+      --surface:      #ffffff;
+      --surface2:     #f9f8f5;
+      --border:       #e8e5de;
+      --border2:      #d4cfc4;
+      --text:         #1a1a18;
+      --text-sec:     #6b6860;
+      --text-dim:     #a8a49c;
+      --green:        #2d7a4f;
+      --green-light:  #e8f5ee;
+      --green-bar:    #3cb371;
+      --amber:        #b85c00;
+      --amber-light:  #fff3e0;
+      --amber-bar:    #f5a623;
+      --red:          #c0392b;
+      --red-light:    #fdecea;
+      --red-bar:      #e74c3c;
+      --blue:         #1a5fa8;
+      --blue-light:   #e8f0fb;
+      --accent:       #2d7a4f;
+      --radius:       14px;
+      --shadow:       0 2px 12px rgba(0,0,0,0.07);
+      --shadow-md:    0 4px 24px rgba(0,0,0,0.10);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Navbar ── */
+    nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: var(--shadow);
+    }
+    .logo-icon {
+      width: 32px; height: 32px;
+      background: var(--green);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem;
+    }
+    .logo-text {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.2rem;
+      color: var(--text);
+    }
+    .logo-text span { color: var(--green); }
+    .nav-status {
+      margin-left: auto;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--green);
+      background: var(--green-light);
+      padding: 4px 10px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .nav-status::before {
+      content: '';
+      width: 6px; height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    /* ── Main ── */
+    main {
+      max-width: 700px;
+      margin: 0 auto;
+      padding: 36px 16px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* ── Hero ── */
+    .hero {
+      text-align: center;
+      padding: 8px 0 4px;
+    }
+    .hero h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(1.8rem, 5vw, 2.6rem);
+      color: var(--text);
+      line-height: 1.15;
+    }
+    .hero h1 em {
+      font-style: normal;
+      color: var(--green);
+    }
+    .hero p {
+      margin-top: 8px;
+      color: var(--text-sec);
+      font-size: 0.88rem;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .card-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .card-title::before {
+      content: '';
+      width: 3px; height: 14px;
+      background: var(--green);
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    /* ── Drop zone ── */
+    #drop-zone {
+      border: 2px dashed var(--border2);
+      border-radius: 10px;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all .2s;
+      position: relative;
+      overflow: hidden;
+      background: var(--surface2);
+    }
+    #drop-zone:hover, #drop-zone.drag-over {
+      border-color: var(--green);
+      background: var(--green-light);
+    }
+    #drop-zone.has-image { min-height: 240px; }
+
+    #img-preview {
+      display: none;
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: 10px;
+    }
+    #img-preview.show { display: block; }
+
+    .drop-icon { font-size: 2.2rem; }
+    .drop-text {
+      font-size: 0.85rem;
+      color: var(--text-sec);
+      text-align: center;
+      line-height: 1.6;
+    }
+    .drop-text strong { color: var(--green); font-weight: 600; }
+    #drop-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+
+    /* ── File info ── */
+    #file-info {
+      display: none;
+      font-size: 0.78rem;
+      color: var(--green);
+      margin-top: 10px;
+      padding: 8px 14px;
+      border-radius: 8px;
+      background: var(--green-light);
+      font-weight: 500;
+    }
+
+    /* ── Button ── */
+    #btn-analisis {
+      width: 100%;
+      margin-top: 14px;
+      padding: 14px;
+      background: var(--green);
+      border: none;
+      color: #fff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      letter-spacing: 0.03em;
+    }
+    #btn-analisis:hover:not(:disabled) {
+      background: #256842;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(45,122,79,0.3);
+    }
+    #btn-analisis:disabled {
+      background: var(--border2);
+      color: var(--text-dim);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error ── */
+    #error-banner {
+      display: none;
+      background: var(--red-light);
+      border: 1px solid #f5c6c3;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-size: 0.83rem;
+      color: var(--red);
+      font-weight: 500;
+    }
+
+    /* ── Hasil ── */
+    #hasil-section {
+      display: none;
+      flex-direction: column;
+      gap: 16px;
+      opacity: 0;
+      transform: translateY(16px);
+      transition: opacity .4s ease, transform .4s ease;
+    }
+    #hasil-section.visible { opacity: 1; transform: none; }
+
+    /* ── Nama + Skor ── */
+    .nama-skor {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    #hasil-nama {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(1.3rem, 4vw, 1.9rem);
+      color: var(--text);
+    }
+    #hasil-porsi {
+      font-size: 0.8rem;
+      color: var(--text-sec);
+      margin-top: 4px;
+    }
+
+    /* Skor badge */
+    .skor-badge {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+    .skor-ring-wrap {
+      position: relative;
+      width: 76px; height: 76px;
+    }
+    .skor-ring-wrap svg { transform: rotate(-90deg); }
+    .skor-inner {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+    }
+    #score-num {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+    .skor-sub { font-size: 0.62rem; color: var(--text-dim); }
+    .skor-tier-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 20px;
+    }
+
+    /* ── Kalori strip ── */
+    .kalori-strip {
+      background: linear-gradient(135deg, #1a1a18 0%, #2d3a2e 100%);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #fff;
+    }
+    .kalori-strip .label {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.55);
+    }
+    #hasil-kalori {
+      font-family: 'DM Serif Display', serif;
+      font-size: 3rem;
+      line-height: 1;
+      color: #fff;
+    }
+    .kalori-strip .unit {
+      font-size: 0.7rem;
+      color: rgba(255,255,255,0.45);
+      margin-top: 2px;
+    }
+    .kalori-strip .emoji { font-size: 2.8rem; opacity: 0.25; }
+
+    /* ── Makro + Donut ── */
+    .makro-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 480px) { .makro-layout { grid-template-columns: 1fr; } }
+
+    /* Donut chart */
+    .donut-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 8px 0;
+    }
+    .donut-container {
+      position: relative;
+      width: 160px; height: 160px;
+    }
+    .donut-container svg { transform: rotate(-90deg); }
+    .donut-center {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 1px;
+    }
+    .donut-center .total {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.8rem;
+      line-height: 1;
+    }
+    .donut-center .total-sub {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+    }
+    .donut-legend {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+    }
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .legend-name { flex: 1; color: var(--text-sec); }
+    .legend-pct { font-weight: 700; color: var(--text); font-size: 0.75rem; }
+    .legend-g { color: var(--text-dim); font-size: 0.72rem; margin-left: 4px; }
+
+    /* Detail nutrisi */
+    .detail-nutrisi {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .nutrisi-row {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .nutrisi-row:last-child { border-bottom: none; }
+    .nutrisi-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nutrisi-nama {
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+    .nutrisi-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nutrisi-val {
+      font-size: 0.8rem;
+      color: var(--text-sec);
+      font-weight: 500;
+    }
+    .tier-badge {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 3px 8px;
+      border-radius: 20px;
+    }
+    .tier-rendah  { background: var(--green-light);  color: var(--green); }
+    .tier-sedang  { background: var(--amber-light);  color: var(--amber); }
+    .tier-tinggi  { background: var(--red-light);    color: var(--red); }
+    .tier-ok      { background: var(--blue-light);   color: var(--blue); }
+
+    .nutrisi-bar-track {
+      height: 5px;
+      background: var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .nutrisi-bar-fill {
+      height: 100%;
+      border-radius: 10px;
+      transition: width 1s cubic-bezier(.4,0,.2,1);
+      width: 0%;
+    }
+
+    /* ── Catatan & Alergen ── */
+    #hasil-catatan {
+      font-size: 0.88rem;
+      color: var(--text-sec);
+      line-height: 1.75;
+      background: var(--surface2);
+      border-left: 3px solid var(--green);
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+    }
+    #alergen-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .alergen-badge {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: var(--amber-light);
+      color: var(--amber);
+      border: 1px solid #f5a62340;
+    }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 40px;
+      padding: 24px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      background: transparent;
+    }
+    .social-links {
+      display: flex;
+      gap: 20px;
+    }
+    .social-icon {
+      width: 22px;
+      height: 22px;
+      fill: var(--text-sec);
+      transition: fill 0.2s, transform 0.2s;
+    }
+    .social-links a:hover .social-icon {
+      fill: var(--green);
+      transform: translateY(-3px);
+    }
+    .footer-text {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+    .footer-text strong {
+      color: var(--text-sec);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav>
+  <div class="logo-icon">🥗</div>
+  <span class="logo-text">Nutri<span>Check</span></span>
+  <span class="nav-status">AI Online</span>
+</nav>
+
+<main>
+
+  <!-- HERO -->
+  <div class="hero">
+    <h1>Analisis <em>Nutrisi</em> Instan</h1>
+    <p>Upload foto makananmu — AI akan scan kandungan gizi dalam detik</p>
+  </div>
+
+  <!-- UPLOAD -->
+  <div class="card">
+    <div class="card-title">Upload Gambar Makanan</div>
+    <div id="drop-zone">
+      <img id="img-preview" alt="Preview"/>
+      <div id="drop-placeholder">
+        <div class="drop-icon">📷</div>
+        <div class="drop-text">
+          <strong>Klik untuk pilih</strong> gambar tabel makanan<br/>
+          <span>JPG · PNG · WEBP</span>
+        </div>
+        <div style="display:flex; gap:10px; margin-top:10px; z-index: 10;">
+            <button type="button" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 6px; border: 1px solid var(--green); background: white; color: var(--green); cursor: pointer; font-weight: 600;" onclick="event.stopPropagation(); document.getElementById('camera-input').click()">📷 Kamera</button>
+            <button type="button" style="padding: 6px 12px; font-size: 0.75rem; border-radius: 6px; border: 1px solid var(--green); background: white; color: var(--green); cursor: pointer; font-weight: 600;" onclick="event.stopPropagation(); document.getElementById('file-input').click()">📁 Galeri</button>
+        </div>
+      </div>
+    </div>
+    <input id="camera-input" type="file" accept="image/*" capture="environment" style="display:none"/>
+    <input id="file-input" type="file" accept="image/*" style="display:none"/>
+    <div id="file-info-container" style="display:none; align-items:center; justify-content:space-between; margin-top:10px; padding:8px 14px; border-radius:8px; background:var(--green-light); border: 1px solid #c2e0d1;">
+        <span id="file-info-text" style="font-size:0.78rem; color:var(--green); font-weight:500;"></span>
+        <button id="btn-hapus-foto" type="button" style="background:none; border:none; color:var(--red); font-size:1.5rem; cursor:pointer; line-height:0.5; padding:0 5px;" title="Hapus Foto">&times;</button>
+    </div>
+    <button id="btn-analisis" disabled>
+      <span class="spinner" id="spinner"></span>
+      <span id="btn-text">Pilih Gambar Dulu</span>
+    </button>
+  </div>
+
+  <!-- ERROR -->
+  <div id="error-banner"></div>
+
+  <!-- HASIL -->
+  <div id="hasil-section">
+
+    <!-- Nama + Skor -->
+    <div class="card">
+      <div class="card-title">Deteksi Makanan</div>
+      <div class="nama-skor">
+        <div>
+          <div id="hasil-nama"></div>
+          <div id="hasil-porsi"></div>
+        </div>
+        <div class="skor-badge">
+          <div class="skor-ring-wrap">
+            <svg viewBox="0 0 76 76" width="76" height="76">
+              <circle cx="38" cy="38" r="32" fill="none" stroke="#e8e5de" stroke-width="7"/>
+              <circle id="score-ring" cx="38" cy="38" r="32" fill="none"
+                      stroke="#2d7a4f" stroke-width="7" stroke-linecap="round"
+                      stroke-dasharray="201.1" stroke-dashoffset="201.1"
+                      style="transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1), stroke .4s"/>
+            </svg>
+            <div class="skor-inner">
+              <span id="score-num">0</span>
+              <span class="skor-sub">/10</span>
+            </div>
+          </div>
+          <span id="skor-tier-label" class="skor-tier-label tier-ok">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kalori -->
+    <div class="kalori-strip">
+      <div>
+        <div class="label">Total Kalori</div>
+        <div id="hasil-kalori">0</div>
+        <div class="unit">kkal / porsi</div>
+      </div>
+      <div class="emoji">🔥</div>
+    </div>
+
+    <!-- Komposisi Makro + Detail Nutrisi -->
+    <div class="card">
+      <div class="card-title">Komposisi & Detail Nutrisi</div>
+      <div class="makro-layout">
+
+        <!-- Donut + legenda -->
+        <div class="donut-wrap">
+          <div class="donut-container">
+            <svg viewBox="0 0 160 160" width="160" height="160" id="donut-svg"></svg>
+            <div class="donut-center">
+              <span class="total" id="donut-total">—</span>
+              <span class="total-sub" id="donut-sub">per sajian</span>
+            </div>
+          </div>
+          <div class="donut-legend" id="donut-legend"></div>
+        </div>
+
+        <!-- Detail nutrisi -->
+        <div class="detail-nutrisi" id="detail-nutrisi"></div>
+
+        <div id="row-lainnya" class="nutrisi-row" style="display: none; border-top: 1px solid var(--border);">
+          <div class="nutrisi-top">
+            <span class="nutrisi-nama" style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 10px; height: 10px; background: #d4cfc4; border-radius: 50%;"></span>
+              Lainnya (Air, Mineral, dll)
+            </span>
+            <div class="nutrisi-right">
+              <span id="val-lainnya" class="nutrisi-val" style="font-weight: 600;">0g</span>
+              <span class="tier-badge tier-ok">Normal</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Catatan & Alergen -->
+    <div class="card">
+      <div class="card-title">Catatan & Alergen</div>
+      <div id="hasil-catatan"></div>
+      <div class="card-title" style="margin-top:16px">Potensi Alergen</div>
+      <div id="alergen-list"></div>
+    </div>
+
+  </div><!-- /hasil-section -->
+</main>
+<!-- FOOTER -->
+<footer>
+  <div class="social-links">
+    
+    
+    <!-- Icon Instagram -->
+    <a href="https://www.instagram.com/ryuuuuuuuiii?igsh=Z2s5YWhpMzJscTZ3" target="_blank" title="Instagram">
+      <svg class="social-icon" viewBox="0 0 24 24">
+        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+      </svg>
+    </a>
+
+    <!-- Icon Email -->
+    <a href="mailto:faisalm1306@gmail.com" target="_blank" title="Email">
+      <svg class="social-icon" viewBox="0 0 24 24">
+        <path d="M0 3v18h24v-18h-24zm6.623 7.929l-4.623 5.712v-9.458l4.623 3.746zm-4.141-5.929h19.035l-9.517 7.713-9.518-7.713zm5.694 7.188l3.824 3.099 3.83-3.104 5.612 6.817h-18.779l5.513-6.812zm9.208-1.258l4.616-3.74v9.348l-4.616-5.608z"/>
+      </svg>
+    </a>
+    
+    <!-- Icon GitHub -->
+    <a href="https://github.com/ryuuuuuuiii" target="_blank" title="GitHub">
+      <svg class="social-icon" viewBox="0 0 24 24">
+        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+      </svg>
+    </a>
+  </div>
+  
+  <div class="footer-text">
+    &copy; 2026 NutriCheck AI.<br>
+    Developed with 💚 by <strong>Muhammad Faisal</strong>
+  </div>
+</footer>
+
+<script src="/static/app.js"></script>
+<script>
+// ── Donut chart helpers ───────────────────────────────────────────────────────
+function buildDonut(data) {
+  // data: [{label, value, color}]
+  const r = 68, cx = 80, cy = 80, strokeW = 18;
+  const circ = 2 * Math.PI * r;
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const svg = document.getElementById('donut-svg');
+  svg.innerHTML = '';
+
+  // bg ring
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  bg.setAttribute('cx', cx); bg.setAttribute('cy', cy); bg.setAttribute('r', r);
+  bg.setAttribute('fill', 'none'); bg.setAttribute('stroke', '#e8e5de');
+  bg.setAttribute('stroke-width', strokeW);
+  svg.appendChild(bg);
+
+  let offset = 0;
+  data.forEach(d => {
+    const pct = total > 0 ? d.value / total : 0;
+    const dash = pct * circ;
+    const gap = circ - dash;
+
+    const el = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    el.setAttribute('cx', cx); el.setAttribute('cy', cy); el.setAttribute('r', r);
+    el.setAttribute('fill', 'none');
+    el.setAttribute('stroke', d.color);
+    el.setAttribute('stroke-width', strokeW);
+    el.setAttribute('stroke-linecap', 'butt');
+    el.setAttribute('stroke-dasharray', `${dash} ${gap}`);
+    el.setAttribute('stroke-dashoffset', -offset);
+    el.style.transition = 'stroke-dasharray 1s cubic-bezier(.4,0,.2,1)';
+    svg.appendChild(el);
+    offset += dash;
+  });
+
+  // legend
+  const legend = document.getElementById('donut-legend');
+  legend.innerHTML = '';
+  data.forEach(d => {
+    const pct = total > 0 ? Math.round(d.value / total * 100) : 0;
+    legend.innerHTML += `
+      <div class="legend-item">
+        <div class="legend-dot" style="background:${d.color}"></div>
+        <span class="legend-name">${d.label}</span>
+        <span class="legend-pct">${pct}%</span>
+        <span class="legend-g">${d.value}g</span>
+      </div>`;
+  });
+
+  document.getElementById('donut-total').textContent = total + 'g';
+}
+
+// ── Tier logic ────────────────────────────────────────────────────────────────
+// Thresholds per sajian (per serving) — nilai umum populasi
+const TIER_CONFIG = {
+  lemak_total:  { warn: 10, danger: 20,  unit: 'g',  label: 'Lemak Total' },
+  lemak_jenuh:  { warn: 3,  danger: 7,   unit: 'g',  label: 'Lemak Jenuh' },
+  karbohidrat:  { warn: 30, danger: 60,  unit: 'g',  label: 'Karbohidrat' },
+  gula:         { warn: 10, danger: 20,  unit: 'g',  label: 'Gula' },
+  protein:      { warn: 5,  danger: null, unit: 'g', label: 'Protein', invert: true },
+  serat:        { warn: 3,  danger: null, unit: 'g', label: 'Serat',   invert: true },
+  natrium:      { warn: 400, danger: 800, unit: 'mg', label: 'Natrium' },
+};
+
+function getTier(key, val) {
+  const cfg = TIER_CONFIG[key];
+  if (!cfg) return { tier: 'ok', label: 'Normal', cls: 'tier-ok' };
+
+  if (cfg.invert) {
+    // Semakin tinggi semakin baik
+    if (val >= cfg.warn) return { tier: 'baik',   label: 'Baik',   cls: 'tier-ok' };
+    return { tier: 'rendah', label: 'Rendah', cls: 'tier-sedang' };
+  }
+
+  if (cfg.danger !== null && val >= cfg.danger)
+    return { tier: 'tinggi', label: 'Tinggi', cls: 'tier-tinggi' };
+  if (val >= cfg.warn)
+    return { tier: 'sedang', label: 'Sedang', cls: 'tier-sedang' };
+  return { tier: 'rendah', label: 'Rendah', cls: 'tier-rendah' };
+}
+
+const BAR_COLORS = {
+  rendah: '#3cb371',
+  sedang: '#f5a623',
+  tinggi: '#e74c3c',
+  baik:   '#1a5fa8',
+  ok:     '#3cb371',
+};
+
+function buildDetailNutrisi(n) {
+  const container = document.getElementById('detail-nutrisi');
+  container.innerHTML = '';
+
+  // Estimasi nilai yang mungkin ada dari respons
+  const items = [
+    { key: 'lemak_total',  val: n.lemak_g,           maxRef: 25 },
+    { key: 'lemak_jenuh',  val: n.lemak_jenuh_g ?? Math.round(n.lemak_g * 0.4), maxRef: 10 },
+    { key: 'protein',      val: n.protein_g,          maxRef: 30 },
+    { key: 'karbohidrat',  val: n.karbohidrat_g,      maxRef: 75 },
+    { key: 'gula',         val: n.gula_g,             maxRef: 30 },
+    { key: 'serat',        val: n.serat_g,            maxRef: 10 },
+    { key: 'natrium',      val: n.natrium_mg ?? null,  maxRef: 1000 },
+  ];
+
+  items.forEach(item => {
+    if (item.val === null || item.val === undefined) return;
+    const cfg = TIER_CONFIG[item.key];
+    const tier = getTier(item.key, item.val);
+    const pct = Math.min(100, Math.round(item.val / item.maxRef * 100));
+    const barColor = BAR_COLORS[tier.tier] || BAR_COLORS.ok;
+    const unitLabel = cfg.unit === 'mg' ? `${item.val}mg` : `${item.val}g`;
+
+    const row = document.createElement('div');
+    row.className = 'nutrisi-row';
+    row.innerHTML = `
+      <div class="nutrisi-top">
+        <span class="nutrisi-nama">${cfg.label}</span>
+        <div class="nutrisi-right">
+          <span class="nutrisi-val">${unitLabel}</span>
+          <span class="tier-badge ${tier.cls}">${tier.label}</span>
+        </div>
+      </div>
+      <div class="nutrisi-bar-track">
+        <div class="nutrisi-bar-fill" data-pct="${pct}" style="background:${barColor}; width:0%"></div>
+      </div>`;
+    container.appendChild(row);
+  });
+
+  // Animasi bar
+  requestAnimationFrame(() => {
+    container.querySelectorAll('.nutrisi-bar-fill').forEach(bar => {
+      setTimeout(() => { bar.style.width = bar.dataset.pct + '%'; }, 100);
+    });
+  });
+}
+
+// ── Skor tier ─────────────────────────────────────────────────────────────────
+function getSkorTier(skor) {
+  if (skor >= 8) return { label: 'Sehat',         cls: 'tier-rendah' };
+  if (skor >= 6) return { label: 'Cukup Sehat',   cls: 'tier-ok'    };
+  if (skor >= 4) return { label: 'Jangan Sering', cls: 'tier-sedang' };
+  return             { label: 'Hindari',           cls: 'tier-tinggi' };
+}
+
+// ── Hook ke renderHasil ───────────────────────────────────────────────────────
+// ── Hook ke renderHasil ───────────────────────────────────────────────────────
+const _orig = window.renderHasil;
+window.renderHasil = function(d) {
+  // Panggil renderHasil asli dari app.js
+  document.getElementById('hasil-nama').textContent  = d.nama_makanan   ?? '—';
+  document.getElementById('hasil-kalori').textContent = d.kalori ?? '?';
+  document.getElementById('hasil-catatan').textContent = d.catatan ?? '—';
+
+  const n = d.nutrisi ?? {};
+
+  // Skor ring
+  const skor = Math.min(10, Math.max(0, d.skor_kesehatan ?? 0));
+  document.getElementById('score-num').textContent = skor;
+  const ring = document.getElementById('score-ring');
+  const circ = 2 * Math.PI * 32;
+  const ringOffset = circ - (skor / 10) * circ;
+  ring.style.stroke = skor >= 7 ? '#2d7a4f' : skor >= 4 ? '#b85c00' : '#c0392b';
+  setTimeout(() => { ring.style.strokeDashoffset = ringOffset; }, 80);
+
+  // Skor tier label
+  const st = getSkorTier(skor);
+  const stEl = document.getElementById('skor-tier-label');
+  stEl.textContent = st.label;
+  stEl.className = 'skor-tier-label tier-badge ' + st.cls;
+
+  // Alergen
+  const box = document.getElementById('alergen-list');
+  box.innerHTML = '';
+  const list = d.alergen_potensial ?? [];
+  if (!list.length) {
+    box.innerHTML = '<span style="font-size:.8rem;color:var(--text-dim)">Tidak terdeteksi</span>';
+  } else {
+    list.forEach(a => {
+      const b = document.createElement('span');
+      b.className = 'alergen-badge';
+      b.textContent = a;
+      box.appendChild(b);
+    });
+  }
+
+  // --- REVISI UTAMA: GRAFIK & DETEKSI BERAT TEXT ---
+  const gula = n.gula_g ?? 0;
+  const lemak = n.lemak_g ?? 0;
+  const protein = n.protein_g ?? 0;
+  const serat = n.serat_g ?? 0;
+  const karboTotal = n.karbohidrat_g ?? 0;
+  const karboLainnya = Math.max(0, karboTotal - gula - serat);
+
+  const totalMakro = gula + lemak + protein + serat + karboLainnya;
+
+  // 1. Ekstrak angka gram dari estimasi porsi (misal: "1 sachet (30g)")
+  let beratTotal = 0;
+  const porsiStr = (d.porsi_estimasi || '').toLowerCase();
+  const matchBerat = porsiStr.match(/(\d+(?:\.\d+)?)\s*(g|gr|gram)/);
+  if (matchBerat) {
+    beratTotal = parseFloat(matchBerat[1]);
+  }
+
+  // REQUEST 1: Ubah tulisan porsi (misal "1 sachet") jadi murni gram jika terdeteksi
+  const porsiEl = document.getElementById('hasil-porsi');
+  if (porsiEl) {
+    porsiEl.textContent = beratTotal > 0 ? `${beratTotal} gram` : (d.porsi_estimasi ?? '');
+  }
+
+  let donutData = [
+    { label: 'Gula',          value: gula,         color: '#e74c3c' },
+    { label: 'Lemak',         value: lemak,        color: '#f5a623' },
+    { label: 'Protein',       value: protein,      color: '#1a5fa8' },
+    { label: 'Serat',         value: serat,        color: '#3cb371' },
+    { label: 'Karbo Lainnya', value: karboLainnya, color: '#f0a500' }
+  ];
+
+  // 2. Hitung variabel "Lainnya" jika berat total fisik dari AI > total makro nutrisi
+  let sisaLainnya = 0;
+  if (beratTotal > totalMakro) {
+    sisaLainnya = Math.round(beratTotal - totalMakro);
+    if (sisaLainnya > 0) {
+      donutData.push({ label: 'Lainnya', value: sisaLainnya, color: '#d4cfc4' });
+    }
+    document.getElementById('donut-sub').textContent = 'per sajian';
+  } else {
+    document.getElementById('donut-sub').textContent = 'Total Makro';
+  }
+
+  // REQUEST 2: Sembunyikan/Munculkan detail teks "Lainnya" di bawah list nutrisi
+  const rowLainnya = document.getElementById('row-lainnya');
+  const valLainnya = document.getElementById('val-lainnya');
+  if (sisaLainnya > 0) {
+    if (rowLainnya && valLainnya) {
+      valLainnya.textContent = `${sisaLainnya}g`;
+      rowLainnya.style.display = 'flex'; // Munculkan baris dengan display flex
+    }
+  } else {
+    if (rowLainnya) rowLainnya.style.display = 'none'; // Sembunyikan jika pas
+  }
+
+  // 3. Render ke Donut Chart grafik
+  donutData = donutData.filter(x => x.value > 0);
+  buildDonut(donutData);
+
+  // Detail nutrisi bawaan
+  buildDetailNutrisi(n);
+
+  // Tampilkan section hasil
+  const hasilSection = document.getElementById('hasil-section');
+  hasilSection.style.display = 'flex';
+  requestAnimationFrame(() => hasilSection.classList.add('visible'));
+  hasilSection.scrollIntoView({ behavior: 'smooth' });
+};
+</script>
+</body>
+</html>
