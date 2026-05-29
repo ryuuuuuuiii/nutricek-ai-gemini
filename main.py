@@ -10,17 +10,20 @@ from google import genai
 from google.genai import types
 from PIL import Image, ImageOps
 
+# 1. Load API Key dari file .env atau Environment Variable Cloud
 load_dotenv()
-
-# ── Gemini Client Initialization ─────────────────────────────────────────────
 api_key = os.getenv("GEMINI_API_KEY")
+
 if not api_key:
     raise ValueError("Waduh, GEMINI_API_KEY kagak ketemu di file .env atau Railway Variables!")
 
+# Inisialisasi Google GenAI Client Resmi (v2)
 client = genai.Client(api_key=api_key)
-MODEL = "gemini-2.0-flash"
+MODEL_NAME = "gemini-2.0-flash"
 
-# ── Prompt ───────────────────────────────────────────────────────────────────
+app = FastAPI(title="NutriCheck AI", version="3.0.0")
+
+# ── Prompt Nutrisi & Aturan JSON ──────────────────────────────────────────
 NUTRISI_PROMPT = """Kamu adalah ahli gizi profesional. Analisis gambar makanan ini.
 Kembalikan HANYA objek JSON valid, tanpa markdown, tanpa backtick, tanpa teks lain.
 Format persis seperti ini:
@@ -39,88 +42,77 @@ Format persis seperti ini:
   "catatan": "string",
   "alergen_potensial": ["string"]
 }
-Catatan: skor_kesehatan antara 1-10. Jika bukan makanan: {"error": "Gambar bukan makanan"}"""
-
-# ── App ──────────────────────────────────────────────────────────────────────
-app = FastAPI(title="NutriCheck AI", version="3.0.0")
+Catatan: skor_kesehatan antara 1-10. Jika gambar yang diupload SAMA SEKALI BUKAN MAKANAN, kembalikan format: {"error": "Gambar bukan makanan"}"""
 
 
+# 2. Endpoint API Analisis Makanan
 @app.post("/api/analisis")
 async def analisis_makanan(file: UploadFile = File(...)):
-    # 1. Validasi Format File
+    # Validasi input harus file gambar
     if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File harus berupa gambar.")
-
-    image_bytes = await file.read()
+        raise HTTPException(status_code=400, detail="File yang lu upload harus berupa gambar ya!")
     
-    # 2. Validasi Ukuran Gambar Maksimal 10 MB
-    if len(image_bytes) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="Ukuran gambar maksimal 10 MB.")
-
-    # 3. --- PERBAIKAN ROTASI EXIF HP ---
     try:
-        # Buka gambar menggunakan Pillow
-        img = Image.open(io.BytesIO(image_bytes))
+        contents = await file.read()
         
-        # Otomatis meluruskan gambar berdasarkan data EXIF bawaan kamera HP
-        img = ImageOps.exif_transpose(img)
-    except Exception:
-        # Jika gagal memproses (misal file korup), kembali pakai file aslinya
+        # Batasi ukuran file maks 10 MB agar hemat bandwidth server
+        if len(contents) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail="Ukuran gambar terlalu besar, maksimal 10 MB.")
+            
+        # ── PERBAIKAN ROTASI OTOMATIS EXIF CAMERA HP ──
         try:
-            img = Image.open(io.BytesIO(image_bytes))
+            img = Image.open(io.BytesIO(contents))
+            img = ImageOps.exif_transpose(img)  # Meluruskan gambar otomatis jika miring saat dipotret HP
         except Exception:
-            raise HTTPException(status_code=400, detail="Gagal membaca file gambar.")
+            # Fallback jika library Pillow gagal memproses metadata gambar
+            img = Image.open(io.BytesIO(contents))
 
-    # 4. Kirim ke Gemini API
-    try:
+        # ── PANGGIL GEMINI API ──
+        # Memanfaatkan mode strict JSON dengan response_mime_type
         response = client.models.generate_content(
-            model=MODEL,
+            model=MODEL_NAME,
             contents=[NUTRISI_PROMPT, img],
             config=types.GenerateContentConfig(
-                response_mime_type="application/json"
+                response_mime_type="application/json",
+                temperature=0.2
             )
         )
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Gemini API error: {str(e)}")
-
-    raw_text = response.text.strip()
-
-    # 5. Bersihkan markdown fence jika ada (Fallback Protection)
-    if "```" in raw_text:
-        parts = raw_text.split("```")
-        for part in parts:
-            part = part.strip()
-            if part.startswith("json"):
-                part = part[4:].strip()
-            if part.startswith("{"):
-                raw_text = part
-                break
-
-    # Cari JSON object dalam teks jika posisinya bergeser
-    if not raw_text.startswith("{"):
-        start = raw_text.find("{")
-        end = raw_text.rfind("}") + 1
-        if start != -1 and end > start:
-            raw_text = raw_text[start:end]
-
-    # 6. Validasi & Parsing JSON akhir
-    try:
-        result = json.loads(raw_text)
+                
+        text_response = response.text.strip()
+        
+        # ── PROTEKSI BAN SEREP (Fallback JSON Cleaner) ──
+        if "```" in text_response:
+            parts = text_response.split("```")
+            for part in parts:
+                part = part.strip()
+                if part.startswith("json"):
+                    part = part[4:].strip()
+                if part.startswith("{"):
+                    text_response = part
+                    break
+        
+        # Konversi string respon ke JSON Python
+        data_json = json.loads(text_response)
+        
+        # Jika AI mendeteksi objek bukan makanan
+        if "error" in data_json:
+            return JSONResponse(status_code=400, content=data_json)
+            
+        return JSONResponse(content=data_json)
+        
     except json.JSONDecodeError:
-        raise HTTPException(
-            status_code=422,
-            detail={"message": "Model tidak mengembalikan JSON valid.", "raw": raw_text},
-        )
+        raise HTTPException(status_code=500, detail="AI ngasih format yang meleset, silakan coba scan ulang gambarnya.")
+    except Exception as e:
+        # Cetak log error asli di terminal server agar gampang ditelusuri jika ada crash
+        print("\n=== DETAIL CRASH BACKEND ===")
+        import traceback
+        traceback.print_exc()
+        print("============================\n")
+        raise HTTPException(status_code=500, detail=f"Terjadi error internal: {str(e)}")
 
-    if "error" in result:
-        return JSONResponse(status_code=400, content=result)
 
-    return JSONResponse(content=result)
-
-
-# ── Static Files & Routing ───────────────────────────────────────────────────
+# 3. Serving File Statis Frontend (index.html, app.js, css)
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 
 @app.get("/")
 async def root():
