@@ -25,7 +25,7 @@ dropZone.addEventListener('drop', e => {
 fileInput.addEventListener('change', () => {
   if (fileInput.files[0]) handleFile(fileInput.files[0]);
 });
-// Tambahkan 4 baris ini
+
 const cameraInput = document.getElementById('camera-input');
 cameraInput.addEventListener('change', () => {
   if (cameraInput.files[0]) handleFile(cameraInput.files[0]);
@@ -46,7 +46,6 @@ function handleFile(file) {
   };
   reader.readAsDataURL(file);
 
-  // Ganti fileInfo lama dengan ini
   document.getElementById('file-info-text').textContent = `✓ ${file.name}  (${(file.size/1024).toFixed(1)} KB)`;
   document.getElementById('file-info-container').style.display = 'flex';
 
@@ -75,7 +74,6 @@ btnAnalisis.addEventListener('click', async () => {
     }
     if (data.error) { showError('⚠ ' + data.error); return; }
 
-    // renderHasil sudah di-override di index.html
     renderHasil(data);
   } catch (err) {
     console.error(err);
@@ -117,7 +115,6 @@ document.getElementById('btn-hapus-foto').addEventListener('click', () => {
   btnAnalisis.disabled = true;
   btnText.textContent = 'Pilih Gambar Dulu';
   
-  // Reset input value agar bisa memilih file yang sama lagi
   document.getElementById('file-input').value = '';
   const camInput = document.getElementById('camera-input');
   if (camInput) camInput.value = '';
