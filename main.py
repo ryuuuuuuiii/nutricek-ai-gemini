@@ -1,104 +1,127 @@
 import os
 import json
 import io
+
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+from dotenv import load_dotenv
 from google import genai
 from google.genai import types
-from pydantic import BaseModel
-from PIL import Image
-from dotenv import load_dotenv
+from PIL import Image, ImageOps
 
-# 1. Load API Key dari file .env
 load_dotenv()
+
+# ── Gemini Client Initialization ─────────────────────────────────────────────
 api_key = os.getenv("GEMINI_API_KEY")
-
 if not api_key:
-    raise ValueError("Waduh, GEMINI_API_KEY kagak ketemu di file .env!")
+    raise ValueError("Waduh, GEMINI_API_KEY kagak ketemu di file .env atau Railway Variables!")
 
-# Inisialisasi Client Google GenAI Baru
 client = genai.Client(api_key=api_key)
+MODEL = "gemini-2.0-flash"
 
-app = FastAPI()
+# ── Prompt ───────────────────────────────────────────────────────────────────
+NUTRISI_PROMPT = """Kamu adalah ahli gizi profesional. Analisis gambar makanan ini.
+Kembalikan HANYA objek JSON valid, tanpa markdown, tanpa backtick, tanpa teks lain.
+Format persis seperti ini:
+{
+  "nama_makanan": "string",
+  "porsi_estimasi": "string",
+  "kalori": number,
+  "nutrisi": {
+    "karbohidrat_g": number,
+    "protein_g": number,
+    "lemak_g": number,
+    "serat_g": number,
+    "gula_g": number
+  },
+  "skor_kesehatan": number,
+  "catatan": "string",
+  "alergen_potensial": ["string"]
+}
+Catatan: skor_kesehatan antara 1-10. Jika bukan makanan: {"error": "Gambar bukan makanan"}"""
 
-# Middleware CORS (Biar aman dari blocking browser)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# ── App ──────────────────────────────────────────────────────────────────────
+app = FastAPI(title="NutriCheck AI", version="3.0.0")
 
-# --- SCHEMA STRUKTUR DATA (Disamakan 100% dengan kebutuhan index.html lu) ---
-class NutrisiDetail(BaseModel):
-    gula_g: float
-    lemak_g: float
-    lemak_jenuh_g: float
-    protein_g: float
-    karbohidrat_g: float
-    serat_g: float
-    natrium_mg: float
 
-class AnalisisMakanan(BaseModel):
-    nama_makanan: str
-    porsi_estimasi: str
-    kalori: int
-    nutrisi: NutrisiDetail
-    skor_kesehatan: int
-    alergen_potensial: list[str]
-    catatan: str
-# ----------------------------------------------------------------------------
-
-# 2. Endpoint API untuk Menerima Gambar & Analisis AI
 @app.post("/api/analisis")
 async def analisis_makanan(file: UploadFile = File(...)):
+    # 1. Validasi Format File
     if not file.content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="File yang lu upload harus berupa gambar ya!")
+        raise HTTPException(status_code=400, detail="File harus berupa gambar.")
+
+    image_bytes = await file.read()
     
+    # 2. Validasi Ukuran Gambar Maksimal 10 MB
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Ukuran gambar maksimal 10 MB.")
+
+    # 3. --- PERBAIKAN ROTASI EXIF HP ---
     try:
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents))
+        # Buka gambar menggunakan Pillow
+        img = Image.open(io.BytesIO(image_bytes))
         
-        # Otomatis konversi gambar PNG transparan (RGBA) ke RGB biar gak crash
-        if image.mode != "RGB":
-            image = image.convert("RGB")
-        
-        prompt = "Tolong ekstrak dan analisis informasi tabel komposisi/informasi nilai gizi dari gambar ini."
-        
-        system_instruction = """
-        Kamu adalah seorang ahli gizi digital profesional. Tugasmu adalah menganalisis tabel nutrisi produk.
-        
-        Aturan Pengisian Data:
-        1. skor_kesehatan: Berikan nilai integer dari skala 1-10 (10 sangat sehat, 1 sangat tidak sehat/tinggi ultra-proses).
-        2. kalori: Ambil nilai kalori per porsi sajian (bentuk angka integer).
-        3. alergen_potensial: Deteksi bahan pemicu alergi seperti susu, gandum, kedelai, atau kacang-kacangan.
-        4. Jika ada nilai makro nutrisi yang tidak tertulis sama sekali di tabel, isi otomatis dengan angka 0.
-        """
-        
-        # Memanggil Gemini dengan proteksi tipe data terstruktur
+        # Otomatis meluruskan gambar berdasarkan data EXIF bawaan kamera HP
+        img = ImageOps.exif_transpose(img)
+    except Exception:
+        # Jika gagal memproses (misal file korup), kembali pakai file aslinya
+        try:
+            img = Image.open(io.BytesIO(image_bytes))
+        except Exception:
+            raise HTTPException(status_code=400, detail="Gagal membaca file gambar.")
+
+    # 4. Kirim ke Gemini API
+    try:
         response = client.models.generate_content(
-            model='gemini-2.0-flash',
-            contents=[prompt, image],
+            model=MODEL,
+            contents=[NUTRISI_PROMPT, img],
             config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                response_mime_type="application/json",
-                response_schema=AnalisisMakanan,  # Jaminan format JSON selalu presisi
-                temperature=0.2                  # Suhu rendah agar AI fokus membaca data, bukan berhalusinasi
+                response_mime_type="application/json"
             )
         )
-                
-        return json.loads(response.text.strip())
-        
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="AI ngasih format yang salah, coba foto ulang tabelnya.")
     except Exception as e:
-        print("\n=== DETAIL ERROR BACKEND ===")
-        import traceback
-        traceback.print_exc()
-        print("============================\n")
-        raise HTTPException(status_code=500, detail=f"Terjadi error Gemini: {str(e)}")
+        raise HTTPException(status_code=502, detail=f"Gemini API error: {str(e)}")
 
-# 3. Hubungkan ke folder Frontend (Static Files)
-app.mount("/", StaticFiles(directory="static", html=True), name="static")
+    raw_text = response.text.strip()
+
+    # 5. Bersihkan markdown fence jika ada (Fallback Protection)
+    if "```" in raw_text:
+        parts = raw_text.split("```")
+        for part in parts:
+            part = part.strip()
+            if part.startswith("json"):
+                part = part[4:].strip()
+            if part.startswith("{"):
+                raw_text = part
+                break
+
+    # Cari JSON object dalam teks jika posisinya bergeser
+    if not raw_text.startswith("{"):
+        start = raw_text.find("{")
+        end = raw_text.rfind("}") + 1
+        if start != -1 and end > start:
+            raw_text = raw_text[start:end]
+
+    # 6. Validasi & Parsing JSON akhir
+    try:
+        result = json.loads(raw_text)
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Model tidak mengembalikan JSON valid.", "raw": raw_text},
+        )
+
+    if "error" in result:
+        return JSONResponse(status_code=400, content=result)
+
+    return JSONResponse(content=result)
+
+
+# ── Static Files & Routing ───────────────────────────────────────────────────
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/")
+async def root():
+    return FileResponse("static/index.html")
